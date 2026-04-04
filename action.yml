@@ -1,5 +1,5 @@
 name: "YouTube Cards Generator"
-description: "Generates a beautiful 2x2 SVG card grid of your latest YouTube videos for your GitHub profile README"
+description: "Generates individual SVG video cards and injects dynamic per-video links into your README"
 author: "Sashikumar Yadav"
 
 branding:
@@ -8,12 +8,12 @@ branding:
 
 inputs:
   channel_id:
-    description: "Your YouTube Channel ID (find it in YouTube Studio → Settings → Channel → Advanced)"
+    description: "Your YouTube Channel ID"
     required: true
-  output_path:
-    description: "Where to save the generated SVG file"
+  output_dir:
+    description: "Folder to save the individual card SVGs"
     required: false
-    default: "assets/youtube-cards.svg"
+    default: "assets"
   max_videos:
     description: "Number of videos to display (1–4)"
     required: false
@@ -22,11 +22,15 @@ inputs:
     description: 'Card theme — "dark" or "light"'
     required: false
     default: "dark"
+  readme_path:
+    description: "Path to your README.md file"
+    required: false
+    default: "README.md"
 
 outputs:
-  svg_path:
-    description: "Path to the generated SVG"
-    value: ${{ steps.generate.outputs.svg_path }}
+  output_dir:
+    description: "Folder where card SVGs were saved"
+    value: ${{ steps.generate.outputs.output_dir }}
 
 runs:
   using: "node20"

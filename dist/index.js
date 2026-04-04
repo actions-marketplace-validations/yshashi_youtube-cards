@@ -27559,7 +27559,7 @@ const core = __nccwpck_require__(6966);
 const fs = __nccwpck_require__(9896);
 const path = __nccwpck_require__(6928);
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
+// ─── HTTP Helpers ────────────────────────────────────────────────────────────
 
 async function fetchText(url) {
     const res = await fetch(url);
@@ -27579,6 +27579,8 @@ async function getThumb(id) {
     catch { return await fetchBase64(`https://i.ytimg.com/vi/${id}/hqdefault.jpg`); }
 }
 
+// ─── Parsers & Utils ─────────────────────────────────────────────────────────
+
 function parseVideos(xml, max) {
     return [...xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g)]
         .slice(0, max)
@@ -27593,13 +27595,11 @@ function parseVideos(xml, max) {
 
 function esc(s) {
     return s
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-function wrapText(text, maxLen = 44) {
+function wrapText(text, maxLen = 40) {
     const words = text.split(' ');
     const lines = [];
     let cur = '';
@@ -27615,135 +27615,153 @@ function wrapText(text, maxLen = 44) {
     return lines;
 }
 
-// ─── Themes ─────────────────────────────────────────────────────────────────
+// ─── Themes ──────────────────────────────────────────────────────────────────
 
 const THEMES = {
     dark: {
-        bg: '#0d1117',
-        cardBg: '#161b22',
-        cardStroke: '#21262d',
-        text: '#c9d1d9',
-        subtext: '#58a6ff',
-        shadow: 'rgba(0,0,0,0.45)',
-        overlay: 'rgba(22,27,34,0.85)',
-        play: 'rgba(0,0,0,0.60)',
+        bg: '#161b22', stroke: '#30363d', text: '#c9d1d9',
+        subtext: '#58a6ff', shadow: 'rgba(0,0,0,0.5)',
+        overlay: 'rgba(22,27,34,0.80)', play: 'rgba(0,0,0,0.60)',
     },
     light: {
-        bg: '#f6f8fa',
-        cardBg: '#ffffff',
-        cardStroke: '#d0d7de',
-        text: '#1f2328',
-        subtext: '#0969da',
-        shadow: 'rgba(31,35,40,0.12)',
-        overlay: 'rgba(246,248,250,0.80)',
-        play: 'rgba(0,0,0,0.55)',
+        bg: '#ffffff', stroke: '#d0d7de', text: '#1f2328',
+        subtext: '#0969da', shadow: 'rgba(31,35,40,0.10)',
+        overlay: 'rgba(255,255,255,0.75)', play: 'rgba(0,0,0,0.50)',
     },
 };
 
-// ─── SVG Builder ────────────────────────────────────────────────────────────
+// ─── Single Card SVG Builder ─────────────────────────────────────────────────
 
-async function buildSVG(videos, thumbs, theme) {
+async function buildCardSVG(video, thumbData, theme) {
     const t = THEMES[theme] ?? THEMES.dark;
-    const GAP = 18;
-    const CARD_W = 432;
-    const THUMB_H = 243;  // 16:9
-    const TITLE_H = 66;
-    const CARD_H = THUMB_H + TITLE_H;
-    const COLS = Math.min(videos.length, 2);
-    const ROWS = Math.ceil(videos.length / 2);
-    const SVG_W = GAP + COLS * CARD_W + (COLS - 1) * GAP + GAP;
-    const SVG_H = GAP + ROWS * CARD_H + (ROWS - 1) * GAP + GAP;
+    const W = 460;
+    const THUMB = 259;   // 16:9
+    const FOOT = 64;
+    const H = THUMB + FOOT;
+    const lines = wrapText(esc(video.title));
 
-    let defs = '';
-    let cards = '';
-
-    for (let i = 0; i < videos.length; i++) {
-        const col = i % 2;
-        const row = Math.floor(i / 2);
-        const cx = GAP + col * (CARD_W + GAP);
-        const cy = GAP + row * (CARD_H + GAP);
-        const v = videos[i];
-        const url = `https://www.youtube.com/watch?v=${v.id}`;
-        const lines = wrapText(esc(v.title));
-
-        // Clip path for thumbnail rounded corners
-        defs += `
-    <clipPath id="cp${i}">
-      <rect x="${cx}" y="${cy}" width="${CARD_W}" height="${THUMB_H}" rx="12"/>
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
+  <defs>
+    <clipPath id="cp">
+      <rect width="${W}" height="${THUMB}" rx="10"/>
     </clipPath>
-    <linearGradient id="fade${i}" x1="0" y1="0" x2="0" y2="1">
+    <linearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
       <stop offset="55%" stop-color="transparent"/>
       <stop offset="100%" stop-color="${t.overlay}"/>
-    </linearGradient>`;
+    </linearGradient>
+  </defs>
 
-        // Drop shadow
-        cards += `<rect x="${cx + 3}" y="${cy + 3}" width="${CARD_W}" height="${CARD_H}" rx="12" fill="${t.shadow}"/>`;
-        // Card base
-        cards += `<rect x="${cx}" y="${cy}" width="${CARD_W}" height="${CARD_H}" rx="12" fill="${t.cardBg}" stroke="${t.cardStroke}" stroke-width="1.5"/>`;
-        // Thumbnail
-        cards += `<image href="${thumbs[i]}" x="${cx}" y="${cy}" width="${CARD_W}" height="${THUMB_H}" clip-path="url(#cp${i})" preserveAspectRatio="xMidYMid slice"/>`;
-        // Gradient overlay
-        cards += `<rect x="${cx}" y="${cy}" width="${CARD_W}" height="${THUMB_H}" clip-path="url(#cp${i})" fill="url(#fade${i})"/>`;
+  <!-- Shadow -->
+  <rect x="3" y="3" width="${W}" height="${H}" rx="10" fill="${t.shadow}"/>
+  <!-- Card -->
+  <rect width="${W}" height="${H}" rx="10" fill="${t.bg}" stroke="${t.stroke}" stroke-width="1.5"/>
+  <!-- Thumbnail -->
+  <image href="${thumbData}" x="0" y="0" width="${W}" height="${THUMB}"
+    clip-path="url(#cp)" preserveAspectRatio="xMidYMid slice"/>
+  <!-- Gradient overlay -->
+  <rect width="${W}" height="${THUMB}" clip-path="url(#cp)" fill="url(#fade)"/>
 
-        // Play button
-        const pcx = cx + CARD_W / 2;
-        const pcy = cy + THUMB_H / 2;
-        cards += `<circle cx="${pcx}" cy="${pcy}" r="30" fill="${t.play}"/>`;
-        cards += `<polygon points="${pcx - 11},${pcy - 15} ${pcx + 19},${pcy} ${pcx - 11},${pcy + 15}" fill="white"/>`;
+  <!-- Play button -->
+  <circle cx="${W / 2}" cy="${THUMB / 2}" r="30" fill="${t.play}"/>
+  <polygon points="${W / 2 - 11},${THUMB / 2 - 15} ${W / 2 + 19},${THUMB / 2} ${W / 2 - 11},${THUMB / 2 + 15}" fill="white"/>
 
-        // YouTube badge (bottom-right of thumbnail)
-        const bx = cx + CARD_W - 48;
-        const by = cy + THUMB_H - 28;
-        cards += `<rect x="${bx}" y="${by}" width="32" height="20" rx="5" fill="#FF0000"/>`;
-        cards += `<polygon points="${bx + 7},${by + 4} ${bx + 7},${by + 16} ${bx + 24},${by + 10}" fill="white"/>`;
+  <!-- YouTube badge -->
+  <rect x="${W - 48}" y="${THUMB - 28}" width="32" height="20" rx="5" fill="#FF0000"/>
+  <polygon points="${W - 41},${THUMB - 25} ${W - 41},${THUMB - 12} ${W - 25},${THUMB - 18}" fill="white"/>
 
-        // Title
-        const ty = cy + THUMB_H;
-        lines.forEach((line, li) => {
-            cards += `<text x="${cx + 14}" y="${ty + 23 + li * 22}" font-family="Segoe UI,Inter,system-ui,Arial,sans-serif" font-size="13.5" font-weight="500" fill="${t.text}">${line}</text>`;
-        });
-        // Watch label
-        cards += `<text x="${cx + 14}" y="${ty + TITLE_H - 10}" font-family="Segoe UI,Inter,system-ui,Arial,sans-serif" font-size="11.5" fill="${t.subtext}">▶ Watch on YouTube</text>`;
-    }
+  <!-- Title -->
+  ${lines.map((line, i) =>
+        `<text x="14" y="${THUMB + 22 + i * 22}"
+      font-family="Segoe UI,Inter,system-ui,Arial,sans-serif"
+      font-size="13.5" font-weight="500" fill="${t.text}">${line}</text>`
+    ).join('\n  ')}
 
-    return `<svg xmlns="http://www.w3.org/2000/svg" width="${SVG_W}" height="${SVG_H}" viewBox="0 0 ${SVG_W} ${SVG_H}">
-  <defs>${defs}</defs>
-  <rect width="${SVG_W}" height="${SVG_H}" rx="16" fill="${t.bg}"/>
-  ${cards}
+  <!-- Watch label -->
+  <text x="14" y="${THUMB + FOOT - 10}"
+    font-family="Segoe UI,Inter,system-ui,Arial,sans-serif"
+    font-size="11.5" fill="${t.subtext}">▶ Watch on YouTube</text>
 </svg>`;
 }
 
-// ─── Main ────────────────────────────────────────────────────────────────────
+// ─── README Updater ───────────────────────────────────────────────────────────
+
+function updateReadme(readmePath, videos, outputDir) {
+    if (!fs.existsSync(readmePath)) {
+        core.warning(`README not found at ${readmePath} — skipping update`);
+        return;
+    }
+
+    const START = '<!-- YOUTUBE-CARDS:START -->';
+    const END = '<!-- YOUTUBE-CARDS:END -->';
+
+    // Build 2-column table with per-video links
+    const rows = [];
+    for (let i = 0; i < videos.length; i += 2) {
+        const left = videos[i];
+        const right = videos[i + 1];
+        const leftCell = `<a href="https://www.youtube.com/watch?v=${left.id}" target="_blank">
+      <img src="./${outputDir}/yt-card-${i}.svg" width="100%" alt="${esc(left.title)}"/>
+    </a>`;
+        const rightCell = right
+            ? `<a href="https://www.youtube.com/watch?v=${right.id}" target="_blank">
+      <img src="./${outputDir}/yt-card-${i + 1}.svg" width="100%" alt="${esc(right.title)}"/>
+    </a>`
+            : '';
+        rows.push(`  <tr>\n    <td width="50%">\n    ${leftCell}\n    </td>\n    <td width="50%">\n    ${rightCell}\n    </td>\n  </tr>`);
+    }
+
+    const table = `<table>\n${rows.join('\n')}\n</table>`;
+    const block = `${START}\n${table}\n${END}`;
+
+    let readme = fs.readFileSync(readmePath, 'utf8');
+    const startIdx = readme.indexOf(START);
+    const endIdx = readme.indexOf(END);
+
+    if (startIdx === -1 || endIdx === -1) {
+        core.warning('Markers <!-- YOUTUBE-CARDS:START --> and <!-- YOUTUBE-CARDS:END --> not found in README. Skipping inject.');
+        return;
+    }
+
+    readme = readme.slice(0, startIdx) + block + readme.slice(endIdx + END.length);
+    fs.writeFileSync(readmePath, readme, 'utf8');
+    core.info('README.md updated with dynamic video links!');
+}
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function run() {
     try {
         const channelId = core.getInput('channel_id', { required: true });
-        const outputPath = core.getInput('output_path') || 'assets/youtube-cards.svg';
+        const outputDir = core.getInput('output_dir') || 'assets';
         const maxVideos = Math.min(parseInt(core.getInput('max_videos') || '4', 10), 4);
         const theme = core.getInput('theme') || 'dark';
+        const readmePath = core.getInput('readme_path') || 'README.md';
 
         core.info(`Fetching RSS for channel: ${channelId}`);
         const xml = await fetchText(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`);
         const videos = parseVideos(xml, maxVideos);
 
-        if (videos.length === 0) {
-            core.setFailed('No videos found. Check your channel_id.');
-            return;
-        }
-        core.info(`Found ${videos.length} videos: ${videos.map(v => v.title).join(', ')}`);
+        if (!videos.length) { core.setFailed('No videos found. Check your channel_id.'); return; }
+        core.info(`Found ${videos.length} videos`);
 
         core.info('Downloading thumbnails…');
         const thumbs = await Promise.all(videos.map(v => getThumb(v.id)));
 
-        core.info('Generating SVG…');
-        const svg = await buildSVG(videos, thumbs, theme);
+        core.info('Generating individual card SVGs…');
+        fs.mkdirSync(outputDir, { recursive: true });
 
-        const dir = path.dirname(outputPath);
-        fs.mkdirSync(dir, { recursive: true });
-        fs.writeFileSync(outputPath, svg, 'utf8');
+        for (let i = 0; i < videos.length; i++) {
+            const svg = await buildCardSVG(videos[i], thumbs[i], theme);
+            const filePath = path.join(outputDir, `yt-card-${i}.svg`);
+            fs.writeFileSync(filePath, svg, 'utf8');
+            core.info(`  ✓ ${filePath} (${(svg.length / 1024).toFixed(1)} KB)`);
+        }
 
-        core.setOutput('svg_path', outputPath);
-        core.info(`Done! Saved to ${outputPath} (${(svg.length / 1024).toFixed(1)} KB)`);
+        core.info('Injecting dynamic links into README…');
+        updateReadme(readmePath, videos, outputDir);
+
+        core.setOutput('output_dir', outputDir);
+        core.info('All done!');
 
     } catch (err) {
         core.setFailed(err.message);
