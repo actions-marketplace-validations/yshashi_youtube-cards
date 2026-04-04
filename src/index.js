@@ -79,9 +79,10 @@ async function buildCardSVG(video, thumbData, theme) {
     const t = THEMES[theme] ?? THEMES.dark;
     const W = 460;
     const THUMB = 259;   // 16:9
-    const FOOT = 64;
+    const FOOT = 80;
     const H = THUMB + FOOT;
-    const lines = wrapText(esc(video.title));
+    const lines = wrapText(esc(video.title), 36);
+    const ytUrl = `https://www.youtube.com/watch?v=${video.id}`;
 
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
   <defs>
@@ -94,6 +95,7 @@ async function buildCardSVG(video, thumbData, theme) {
     </linearGradient>
   </defs>
 
+  <a href="${ytUrl}" target="_blank" rel="noopener noreferrer">
   <!-- Shadow -->
   <rect x="3" y="3" width="${W}" height="${H}" rx="10" fill="${t.shadow}"/>
   <!-- Card -->
@@ -114,15 +116,18 @@ async function buildCardSVG(video, thumbData, theme) {
 
   <!-- Title -->
   ${lines.map((line, i) =>
-        `<text x="14" y="${THUMB + 22 + i * 22}"
+        `<text x="14" y="${THUMB + 26 + i * 22}"
       font-family="Segoe UI,Inter,system-ui,Arial,sans-serif"
-      font-size="13.5" font-weight="500" fill="${t.text}">${line}</text>`
+      font-size="15" font-weight="600" fill="${t.text}">${line}</text>`
     ).join('\n  ')}
 
-  <!-- Watch label -->
-  <text x="14" y="${THUMB + FOOT - 10}"
+  <!-- Watch button -->
+  <rect x="14" y="${THUMB + 54}" width="162" height="22" rx="11" fill="#FF0000"/>
+  <text x="95" y="${THUMB + 69}"
+    text-anchor="middle"
     font-family="Segoe UI,Inter,system-ui,Arial,sans-serif"
-    font-size="11.5" fill="${t.subtext}">▶ Watch on YouTube</text>
+    font-size="11.5" font-weight="700" fill="white">▶  Watch on YouTube</text>
+  </a>
 </svg>`;
 }
 
