@@ -1,0 +1,33 @@
+name: "YouTube Cards Generator"
+description: "Generates a beautiful 2x2 SVG card grid of your latest YouTube videos for your GitHub profile README"
+author: "Sashikumar Yadav"
+
+branding:
+  icon: "video"
+  color: "red"
+
+inputs:
+  channel_id:
+    description: "Your YouTube Channel ID (find it in YouTube Studio → Settings → Channel → Advanced)"
+    required: true
+  output_path:
+    description: "Where to save the generated SVG file"
+    required: false
+    default: "assets/youtube-cards.svg"
+  max_videos:
+    description: "Number of videos to display (1–4)"
+    required: false
+    default: "4"
+  theme:
+    description: 'Card theme — "dark" or "light"'
+    required: false
+    default: "dark"
+
+outputs:
+  svg_path:
+    description: "Path to the generated SVG"
+    value: ${{ steps.generate.outputs.svg_path }}
+
+runs:
+  using: "node20"
+  main: "dist/index.js"
