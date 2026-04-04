@@ -2,7 +2,7 @@
 
 Automatically fetch your latest YouTube videos and render them as beautiful SVG cards in your GitHub profile README — updated on a schedule, zero config.
 
-![dark theme preview](https://raw.githubusercontent.com/yshashi/youtube-cards/main/assets/yt-card-0.svg)
+![dark theme preview](https://github.com/yshashi/yshashi/raw/main/assets/yt-card-0.svg)
 
 ---
 
